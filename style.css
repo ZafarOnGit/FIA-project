@@ -52,7 +52,7 @@ a, a:hover, a:active, a:visited {
   left: 0;
   right: 0;
   height: 60px;
-  background: linear-gradient(135deg, var(--fia-white) 0%, var(--fia-secondary) 100%);
+  background: linear-gradient(135deg, var(--fia-white) 0%, var(--fia-white) 100%);
   display: flex;
   align-items: center;
   justify-content: space-between;
