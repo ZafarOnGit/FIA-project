@@ -76,7 +76,7 @@ a, a:hover, a:active, a:visited {
 .logo-text {
   font-size: 1.4em;
   font-weight: 600;
-  color: var(--fia-white);
+  color: var(--fia-primary-dark);
   letter-spacing: 1px;
 }
 
@@ -154,7 +154,7 @@ body.multiple-scenes.mobile #titleBar {
   height: 100%;
   line-height: 30px;
   padding: 5px;
-  background: linear-gradient(135deg, var(--fia-primary) 0%, var(--fia-secondary) 100%);
+  background: linear-gradient(135deg, var(--fia-primary-dark) 0%, var(--fia-secondary) 100%);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
