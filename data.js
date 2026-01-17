@@ -301,7 +301,7 @@ var APP_DATA = {
   "name": "HCT- FIA navigation project demo",
   "settings": {
     "mouseViewMode": "drag",
-    "autorotateEnabled": true,
+    "autorotateEnabled": false,
     "fullscreenButton": true,
     "viewControlButtons": true
   }
