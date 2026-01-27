@@ -178,90 +178,95 @@
   controls.registerMethod('inElement',    new Marzipano.ElementPressControlMethod(viewInElement,  'zoom',  velocity, friction), true);
   controls.registerMethod('outElement',   new Marzipano.ElementPressControlMethod(viewOutElement, 'zoom', -velocity, friction), true);
 
+  // Gyroscope/Device Orientation Control
   var deviceOrientationEnabled = false;
-  var lastAlpha = null;
-  var lastBeta = null;
-  var lastGamma = null;
+  var initialAlpha = null;
+  var initialBeta = null;
+  var initialGamma = null;
 
   function enableDeviceOrientation() {
+    // Request permission for iOS 13+
     if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
       DeviceOrientationEvent.requestPermission()
-        .then(function(response) {
-          if (response === 'granted') {
-            startDeviceOrientation();
+        .then(function(permissionState) {
+          if (permissionState === 'granted') {
+            window.addEventListener('deviceorientation', handleDeviceOrientation);
+            deviceOrientationEnabled = true;
+            console.log('Device orientation enabled');
           } else {
-            console.log('Device orientation permission denied');
+            console.log('Device orientation permission not granted');
           }
         })
         .catch(function(error) {
           console.error('Error requesting device orientation permission:', error);
         });
     } else {
-      startDeviceOrientation();
+      // Non-iOS or older browsers
+      window.addEventListener('deviceorientation', handleDeviceOrientation);
+      deviceOrientationEnabled = true;
+      console.log('Device orientation enabled (non-iOS)');
     }
   }
 
-  function startDeviceOrientation() {
-    deviceOrientationEnabled = true;
-    window.addEventListener('deviceorientation', handleOrientation, true);
-  }
-
-  function handleOrientation(event) {
+  function handleDeviceOrientation(event) {
     if (!deviceOrientationEnabled) return;
 
-    var alpha = event.alpha; // Z-axis rotation (0-360)
-    var beta = event.beta;   // X-axis rotation (-180 to 180)
-    var gamma = event.gamma; // Y-axis rotation (-90 to 90)
+    var alpha = event.alpha; // Z axis (0-360)
+    var beta = event.beta;   // X axis (-180 to 180)
+    var gamma = event.gamma; // Y axis (-90 to 90)
 
-    // Initialize on first reading
-    if (lastAlpha === null) {
-      lastAlpha = alpha;
-      lastBeta = beta;
-      lastGamma = gamma;
+    // Initialize reference angles on first reading
+    if (initialAlpha === null) {
+      initialAlpha = alpha;
+      initialBeta = beta;
+      initialGamma = gamma;
       return;
     }
 
-    // Calculate deltas
-    var deltaAlpha = alpha - lastAlpha;
-    var deltaBeta = beta - lastBeta;
-    var deltaGamma = gamma - lastGamma;
+    // Get the currently active scene
+    var currentScene = viewer.scene();
+    if (!currentScene) return;
 
-    // Handle wraparound for alpha (compass direction)
+    var view = currentScene.view();
+    var params = view.parameters();
+
+    // Calculate rotation differences from initial position
+    var deltaAlpha = alpha - initialAlpha;
+    var deltaBeta = beta - initialBeta;
+
+    // Normalize alpha to -180 to 180 range
     if (deltaAlpha > 180) deltaAlpha -= 360;
     if (deltaAlpha < -180) deltaAlpha += 360;
 
-    // Get current view parameters
-    var view = viewer.view();
-    var params = view.parameters();
+    // Sensitivity adjustment
+    var yawSensitivity = 0.015;
+    var pitchSensitivity = 0.010;
 
-    // Apply orientation changes to the view
-    // Alpha controls yaw (left/right rotation)
-    // Beta controls pitch (up/down tilt)
-    var sensitivity = 0.01;
-    
-    params.yaw -= deltaAlpha * sensitivity;
-    params.pitch += deltaBeta * sensitivity * 0.5;
+    // Update yaw based on alpha (left/right rotation)
+    params.yaw -= deltaAlpha * yawSensitivity * (Math.PI / 180);
 
-    // Clamp pitch to prevent over-rotation
-    var maxPitch = Math.PI / 2 - 0.1;
-    params.pitch = Math.max(-maxPitch, Math.min(maxPitch, params.pitch));
+    // Update pitch based on beta (up/down tilt)
+    params.pitch -= deltaBeta * pitchSensitivity * (Math.PI / 180);
 
+    // Limit pitch to prevent extreme angles
+    var pitchLimit = 80 * Math.PI / 180;
+    params.pitch = Math.max(-pitchLimit, Math.min(pitchLimit, params.pitch));
+
+    // Apply the new view parameters
     view.setParameters(params);
-
-    // Update last values
-    lastAlpha = alpha;
-    lastBeta = beta;
-    lastGamma = gamma;
   }
 
-  // Auto-enable gyroscope on mobile devices
+  // Request permission on user interaction
+  function requestGyroPermission() {
+    enableDeviceOrientation();
+    document.body.removeEventListener('click', requestGyroPermission);
+    document.body.removeEventListener('touchstart', requestGyroPermission);
+  }
+
+  // Auto-request gyroscope on mobile after user interaction
   if (document.body.classList.contains('mobile')) {
-    // Add a button or enable automatically after user interaction
-    document.body.addEventListener('touchstart', function enableGyro() {
-      enableDeviceOrientation();
-      // Remove the listener after first touch
-      document.body.removeEventListener('touchstart', enableGyro);
-    }, { once: true });
+    document.body.addEventListener('touchstart', requestGyroPermission, { once: true });
+    document.body.addEventListener('click', requestGyroPermission, { once: true });
   }
 
   function sanitize(s) {
