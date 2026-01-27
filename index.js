@@ -178,6 +178,92 @@
   controls.registerMethod('inElement',    new Marzipano.ElementPressControlMethod(viewInElement,  'zoom',  velocity, friction), true);
   controls.registerMethod('outElement',   new Marzipano.ElementPressControlMethod(viewOutElement, 'zoom', -velocity, friction), true);
 
+  var deviceOrientationEnabled = false;
+  var lastAlpha = null;
+  var lastBeta = null;
+  var lastGamma = null;
+
+  function enableDeviceOrientation() {
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission()
+        .then(function(response) {
+          if (response === 'granted') {
+            startDeviceOrientation();
+          } else {
+            console.log('Device orientation permission denied');
+          }
+        })
+        .catch(function(error) {
+          console.error('Error requesting device orientation permission:', error);
+        });
+    } else {
+      startDeviceOrientation();
+    }
+  }
+
+  function startDeviceOrientation() {
+    deviceOrientationEnabled = true;
+    window.addEventListener('deviceorientation', handleOrientation, true);
+  }
+
+  function handleOrientation(event) {
+    if (!deviceOrientationEnabled) return;
+
+    var alpha = event.alpha; // Z-axis rotation (0-360)
+    var beta = event.beta;   // X-axis rotation (-180 to 180)
+    var gamma = event.gamma; // Y-axis rotation (-90 to 90)
+
+    // Initialize on first reading
+    if (lastAlpha === null) {
+      lastAlpha = alpha;
+      lastBeta = beta;
+      lastGamma = gamma;
+      return;
+    }
+
+    // Calculate deltas
+    var deltaAlpha = alpha - lastAlpha;
+    var deltaBeta = beta - lastBeta;
+    var deltaGamma = gamma - lastGamma;
+
+    // Handle wraparound for alpha (compass direction)
+    if (deltaAlpha > 180) deltaAlpha -= 360;
+    if (deltaAlpha < -180) deltaAlpha += 360;
+
+    // Get current view parameters
+    var view = viewer.view();
+    var params = view.parameters();
+
+    // Apply orientation changes to the view
+    // Alpha controls yaw (left/right rotation)
+    // Beta controls pitch (up/down tilt)
+    var sensitivity = 0.01;
+    
+    params.yaw -= deltaAlpha * sensitivity;
+    params.pitch += deltaBeta * sensitivity * 0.5;
+
+    // Clamp pitch to prevent over-rotation
+    var maxPitch = Math.PI / 2 - 0.1;
+    params.pitch = Math.max(-maxPitch, Math.min(maxPitch, params.pitch));
+
+    view.setParameters(params);
+
+    // Update last values
+    lastAlpha = alpha;
+    lastBeta = beta;
+    lastGamma = gamma;
+  }
+
+  // Auto-enable gyroscope on mobile devices
+  if (document.body.classList.contains('mobile')) {
+    // Add a button or enable automatically after user interaction
+    document.body.addEventListener('touchstart', function enableGyro() {
+      enableDeviceOrientation();
+      // Remove the listener after first touch
+      document.body.removeEventListener('touchstart', enableGyro);
+    }, { once: true });
+  }
+
   function sanitize(s) {
     return s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;');
   }
